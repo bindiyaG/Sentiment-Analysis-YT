@@ -1,8 +1,12 @@
 scikit-learn
-streamlit
 matplotlib
 seaborn
 nltk
 wordcloud
 gensim
 nltk
+streamlit==0.89.0 
+pandas
+string
+keras
+tensorflow 
