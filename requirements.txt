@@ -5,8 +5,7 @@ nltk
 wordcloud
 gensim
 nltk
-streamlit==0.89.0 
+streamlit
 pandas
-string
 keras
 tensorflow 
