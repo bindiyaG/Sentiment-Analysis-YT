@@ -12,7 +12,7 @@ from keras.models import load_model
 nltk.download('stopwords')
 
 # Load the pre-trained LSTM model
-model = load_model('lstm_model.h5')
+model = load_model('new_model.h5')
 
 # Function to clean and filter the text
 def clean_text(text):
