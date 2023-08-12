@@ -1,21 +1,19 @@
 import streamlit as st
-import pandas as pd
+import numpy as np
 import string
 import matplotlib.pyplot as plt
-import seaborn as sns
 import nltk
 from nltk.corpus import stopwords
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import load_model
+from lime.lime_text import LimeTextExplainer
 
 nltk.download("stopwords")
 
 # Load the pre-trained LSTM model
 model = load_model("lstm_model.h5")
 
-
-# Function to clean and filter the text
 def clean_text(text):
     stop_words = set(stopwords.words("english"))
     text = text.lower()
@@ -23,60 +21,46 @@ def clean_text(text):
     text = " ".join([word for word in text.split() if word not in stop_words])
     return text
 
-
 def prepare_data(texts):
-    # Initialize a tokenizer
     tokenizer = Tokenizer(num_words=500, oov_token="<OOV>")
-    # Fit the tokenizer and convert the texts to sequences
     tokenizer.fit_on_texts(texts)
     sequences = tokenizer.texts_to_sequences(texts)
-    # Pad the sequences so they all have the same length
     sequences = pad_sequences(sequences, maxlen=1408)
     return sequences
 
+def predict_fn(texts):
+    if not isinstance(texts, list):
+        texts = [texts]
 
-# Streamlit App
+    processed_texts = [clean_text(text) for text in texts]
+    X = prepare_data(processed_texts)
+    predictions = model.predict(X)
+    predictions_2d = np.hstack([(1.0 - predictions), predictions])
+    return predictions_2d
+
 def main():
-    st.title("Sentiment Analysis Web App for Yeti Analytics")
-    st.sidebar.title("Settings")
-
-    st.markdown("## Enter Your Review")
-    user_input = st.text_area("")
+    st.title("Sentiment Analysis Dashboard")
+    user_input = st.text_area("Enter Your Review", "")
 
     if st.button("Analyze"):
-        if user_input is not None:
-            # Preprocess the review
+        if user_input:
             cleaned_text = clean_text(user_input)
-
-            # Prepare the review for the model
             X = prepare_data([cleaned_text])
-
-            # Perform sentiment analysis using the loaded model
-            predictions = model.predict(X)
-
-            sentiment_score = predictions[0]
-            sentiment_label = "Positive" if sentiment_score >= 0.5 else "Negative"
-
-            # Display review and sentiment analysis results
+            predictions = model.predict(X)[0]
+            sentiment_label = "Positive" if predictions >= 0.5 else "Negative"
+            
             st.markdown("## Sentiment Analysis Result")
-            st.table(
-                pd.DataFrame(
-                    {"Review": [user_input], "Sentiment Label": [sentiment_label]}
-                )
-            )
+            st.write(f"Review: {user_input}")
+            st.write(f"Sentiment Label: {sentiment_label}")
 
-            st.markdown("## Predicted Sentiment Label")
-            # Create a DataFrame with sentiment labels and their counts
-            sentiment_data = pd.DataFrame(
-                {
-                    "Labels": ["Positive", "Negative"],
-                    "Count": [int(sentiment_score >= 0.5), int(sentiment_score < 0.5)],
-                }
-            )
+            # Explain the prediction using LIME
+            explainer = LimeTextExplainer(class_names=["Negative", "Positive"])
+            explanation = explainer.explain_instance(cleaned_text, predict_fn)
 
-            # Plot the bar chart
-            st.bar_chart(sentiment_data.set_index("Labels"))
-
+            # Display LIME explanation plot
+            st.markdown("## LIME Explanation")
+            fig = explanation.as_pyplot_figure()
+            st.pyplot(fig)
 
 if __name__ == "__main__":
     main()
